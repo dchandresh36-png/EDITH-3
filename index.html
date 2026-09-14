@@ -280,15 +280,18 @@ const GROQ_API_KEY = "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";
           })
         });
 
-        const data = await response.json();
+       const data = await response.json();
+        console.log("Raw Groq Response:", data); // <-- Add this to see what Groq sent
 
-        if (data.choices && data.choices[0].message) {
-          const aiReply = data.choices[0].message.content.trim();
-          sysStatus.innerText = `E.D.I.T.H.: ${aiReply}`;
-          voiceStatus.innerText = "VOICE: LISTENING...";
-          speak(aiReply);
+        // Check if data has choices and message content
+        if (data && data.choices && data.choices.length > 0 && data.choices[0].message) {
+            const aiReply = data.choices[0].message.content.trim();
+            sysStatus.innerText = `E.D.I.T.H.: ${aiReply}`;
+            voiceStatus.innerText = "VOICE: LISTENING...";
+            speak(aiReply);
         } else {
-          throw new Error("Invalid response structure");
+            console.error("Unexpected JSON structure:", data);
+            throw new Error("Invalid response structure");
         }
       } catch (err) {
         console.error("Groq Error:", err);
