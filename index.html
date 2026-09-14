@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E.D.I.T.H. AR System</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: #00f3ff;
+    }
+    #webcam {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 1;
+    }
+    .hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* Movie-Style Floating UI Panels */
+    .hud-panel {
+      position: absolute;
+      padding: 12px 18px;
+      border: 1px solid rgba(0, 243, 255, 0.4);
+      background: rgba(4, 16, 26, 0.65);
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.25);
+      backdrop-filter: blur(2px);
+    }
+    .top-left {
+      top: 25px;
+      left: 25px;
+      border-left: 3px solid #00f3ff;
+    }
+    .bottom-left {
+      bottom: 25px;
+      left: 25px;
+      border-left: 3px solid #00f3ff;
+    }
+    .bottom-right {
+      bottom: 25px;
+      right: 25px;
+      text-align: right;
+      border-right: 3px solid #00f3ff;
+    }
+    .title {
+      font-size: 1rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+      text-shadow: 0 0 8px #00f3ff;
+    }
+    .data-text {
+      font-size: 0.75rem;
+      color: #88f7ff;
+      line-height: 1.4;
+    }
+
+    /* Outer Movie HUD Framing Corners */
+    .frame-corner {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border: 2px solid rgba(0, 243, 255, 0.6);
+      pointer-events: none;
+    }
+    .top-left-corner { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+    .top-right-corner { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+    .bottom-left-corner { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+    .bottom-right-corner { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+    /* Movie Center Reticle */
+    .center-reticle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 140px;
+      height: 140px;
+      border: 1px dashed rgba(0, 243, 255, 0.4);
+      border-radius: 50%;
+      pointer-events: none;
+      box-shadow: 0 0 12px rgba(0, 243, 255, 0.2);
+    }
+    .center-reticle::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 6px;
+      height: 6px;
+      background: #00f3ff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 8px #00f3ff;
+    }
+
+    /* Movie-Accurate Red Target Box */
+    .scan-target {
+      position: absolute;
+      width: 110px;
+      height: 120px;
+      border: 2px solid #ff1e38;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      box-shadow: 0 0 15px rgba(255, 30, 56, 0.7);
+      background: rgba(255, 30, 56, 0.08);
+      animation: pulseTarget 1.5s infinite alternate;
+    }
+    .scan-target::after {
+      content: 'TARGET LOCK';
+      position: absolute;
+      top: -18px;
+      left: 0;
+      font-size: 0.65rem;
+      font-weight: bold;
+      color: #ff1e38;
+      letter-spacing: 1px;
+      text-shadow: 0 0 6px #ff1e38;
+    }
+    @keyframes pulseTarget {
+      0% { border-color: #ff1e38; box-shadow: 0 0 10px rgba(255, 30, 56, 0.5); }
+      100% { border-color: #ff5566; box-shadow: 0 0 22px rgba(255, 30, 56, 0.9); }
+    }
+  </style>
+</head>
+<body>
+
+  <video id="webcam" autoplay playsinline muted></video>
+
+  <div class="hud-overlay">
+    <div class="frame-corner top-left-corner"></div>
+    <div class="frame-corner top-right-corner"></div>
+    <div class="frame-corner bottom-left-corner"></div>
+    <div class="frame-corner bottom-right-corner"></div>
+
+    <div class="center-reticle"></div>
+
+    <div class="hud-panel top-left">
+      <div class="title">E.D.I.T.H. V2.0</div>
+      <div class="data-text">AI CORE: GROQ LLAMA 3</div>
+      <div class="data-text">ENCRYPTION: 4096-BIT</div>
+    </div>
+
+    <div class="hud-panel bottom-left">
+      <div class="title">SYSTEM STATUS</div>
+      <div id="sysStatus" class="data-text">TAP SCREEN TO INITIALIZE...</div>
+      <div id="voiceStatus" class="data-text">VOICE: STANDBY</div>
+    </div>
+
+    <div class="hud-panel bottom-right">
+      <div class="title">TACTICAL DATA</div>
+      <div class="data-text">FPS: 60</div>
+      <div id="threatLevel" class="data-text">THREAT LEVEL: NEUTRAL</div>
+    </div>
+  </div>
+
+  <script>
+    // Replace the text inside quotes with your new secret Groq API key (starts with gsk_...)
+    // Replace these with the two halves of your actual Groq API key
+// Single-string API key implementation
+const GROQ_API_KEY = "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";
+    const video = document.getElementById('webcam');
+    const sysStatus = document.getElementById('sysStatus');
+    const voiceStatus = document.getElementById('voiceStatus');
+    const threatLevel = document.getElementById('threatLevel');
+
+    let isInitialized = false;
+    let recognition;
+
+    function initializeSystem() {
+      if (isInitialized) return;
+      isInitialized = true;
+
+      // 1. Mobile Camera Access (Rear Facing)
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+        .then((stream) => {
+          video.srcObject = stream;
+          sysStatus.innerText = "SCANNING ENVIRONMENT...";
+        })
+        .catch((err) => {
+          console.error("Camera access error:", err);
+          sysStatus.innerText = "CAMERA ACCESS DENIED";
+        });
+
+      // 2. Web Speech Recognition Loop
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = 'en-IN';
+
+        recognition.onstart = () => {
+          voiceStatus.innerText = "VOICE: LISTENING...";
+        };
+
+        recognition.onresult = async (event) => {
+          const last = event.results.length - 1;
+          const userQuery = event.results[last][0].transcript.trim();
+
+          sysStatus.innerText = `USER: "${userQuery}"`;
+          await askGroqAI(userQuery);
+        };
+
+        recognition.onerror = (event) => {
+          console.error("Speech Recognition Error:", event.error);
+          if (event.error !== 'no-speech') {
+            voiceStatus.innerText = "MIC ERROR: " + event.error;
+          }
+        };
+
+        recognition.onend = () => {
+          try {
+            recognition.start();
+          } catch (e) {}
+        };
+
+        try {
+          recognition.start();
+        } catch (e) {
+          voiceStatus.innerText = "VOICE: TAP TO RETRY";
+        }
+      } else {
+        voiceStatus.innerText = "VOICE: UNSUPPORTED BROWSER";
+      }
+    }
+
+    // 3. Groq AI Integration
+    async function askGroqAI(promptText) {
+      if (GROQ_API_KEY === "PASTE_YOUR_NEW_GROQ_API_KEY_HERE" || !GROQ_API_KEY.startsWith("gsk_")) {
+        const keyMsg = "Please insert your valid Groq API key into the HTML code.";
+        sysStatus.innerText = "GROQ API KEY MISSING";
+        speak(keyMsg);
+        return;
+      }
+
+      sysStatus.innerText = "PROCESSING WITH GROQ AI...";
+      voiceStatus.innerText = "VOICE: THINKING...";
+
+      try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${GROQ_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              {
+                role: "system",
+                content: "You are E.D.I.T.H. (Even Dead I'm The Hero), Tony Stark's tactical AI for Chandresh. Answer concisely in 1 to 2 short sentences max."
+              },
+              {
+                role: "user",
+                content: promptText
+              }
+            ]
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.choices && data.choices[0].message) {
+          const aiReply = data.choices[0].message.content.trim();
+          sysStatus.innerText = `E.D.I.T.H.: ${aiReply}`;
+          voiceStatus.innerText = "VOICE: LISTENING...";
+          speak(aiReply);
+        } else {
+          throw new Error("Invalid response structure");
+        }
+      } catch (err) {
+        console.error("Groq Error:", err);
+        sysStatus.innerText = "AI CORE UNRESPONSIVE";
+        voiceStatus.innerText = "VOICE: LISTENING...";
+        speak("Tactical connection failed, Chandresh.");
+      }
+    }
+
+    // 4. Text-to-Speech Output
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const speech = new SpeechSynthesisUtterance(text);
+        speech.lang = 'en-IN';
+        speech.rate = 1.05;
+        speech.pitch = 0.95;
+        speech.volume = 1.0;
+        window.speechSynthesis.speak(speech);
+      }
+    }
+
+    // 5. Target Lock Graphic on Screen Tap
+    document.addEventListener('click', (e) => {
+      if (!isInitialized) {
+        initializeSystem();
+        return;
+      }
+
+      const existing = document.querySelector('.scan-target');
+      if (existing) existing.remove();
+
+      const target = document.createElement('div');
+      target.className = 'scan-target';
+      target.style.left = `${e.clientX}px`;
+      target.style.top = `${e.clientY}px`;
+      document.body.appendChild(target);
+
+      sysStatus.innerText = `TARGET ACQUIRED: X-${e.clientX} Y-${e.clientY}`;
+      threatLevel.innerText = "THREAT LEVEL: TARGET LOCK";
+      threatLevel.style.color = "#ff1e38";
+
+      speak("Target analyzed.");
+
+      setTimeout(() => {
+        target.remove();
+        sysStatus.innerText = "SCANNING ENVIRONMENT...";
+        threatLevel.innerText = "THREAT LEVEL: NEUTRAL";
+        threatLevel.style.color = "#88f7ff";
+      }, 4000);
+    });
+  </script>
+</body>
+</html>
